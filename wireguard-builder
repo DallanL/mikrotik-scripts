@@ -1,0 +1,53 @@
+# built on v7.19.6
+
+:global wireguardInterfaceName "wireguard-ncv"
+:global wireguardAddress 192.168.77.1/24
+:global numberOfPeers 1
+
+#build the wireguard interface and give it an address if no wg interface exists
+:if ( [:len [/interface/wireguard/find]] = 0 ) do={
+/interface/wireguard/add name=$wireguardInterfaceName
+/ip/address/add address=$wireguardAddress interface=$wireguardInterfaceName
+} else={
+# if wireguard interface already exists, use it
+:if ( [:len [/interface/wireguard/find]] = 1 ) do={
+:set wireguardInterfaceName [/interface/wireguard get [find] name]
+# if wireguard interface exists, check if it has an IP assigned, and use it if it does, or use the one from global variables
+:if ( [:len [/ip/address/find where interface=[/interface/wireguard get [find] name]]] = 1 ) do={
+:set wireguardAddress [/ip/address get [find where interface=$wireguardInterfaceName] address]
+} else={
+:if ( [:len [/ip/address/find where interface=[/interface/wireguard get [find] name]]] = 0 ) do={
+/ip/address/add address=$wireguardAddress interface=$wireguardInterfaceName
+} else={
+:error "too many IPs on WG interface"
+}
+}
+} else={
+:error "too many wireguard interfaces"
+}
+}
+
+# build wireguard peer
+# if no peers currently exist...
+:if ( [:len [/interface/wireguard/peers/find]] = 0 ) do={
+:local peerClientAddress ( [:pick $wireguardAddress 0 [:find $wireguardAddress "/"]] )
+:for i from=1 to=$numberOfPeers do={
+:set peerClientAddress ( $peerClientAddress +1 )
+/interface/wireguard/peers/add private-key=auto allowed-address=$peerClientAddress persistent-keepalive=00:00:10 client-endpoint=[/ip/cloud/ get public-address] client-dns=9.9.9.9,1.1.1.1,8.8.8.8 client-address=$peerClientAddress client-keepalive=00:00:10 interface=$wireguardInterfaceName
+}
+} else={
+:local peerClientAddress 0.0.0.0
+:foreach i in=[/interface/wireguard/peers/find] do={
+:local temp [:pick [/interface/wireguard/peers get [find $i] client-address] 0]
+:local tempClientAddress ( [:pick $temp 0 [:find $temp "/"]] )
+:put ("client IP is: " . $tempClientAddress )
+:put ("current peer IP is: " . $peerClientAddress )
+:if ( $tempClientAddress > $peerClientAddress ) do={
+:set peerClientAddress $tempClientAddress
+}
+}
+:for i from=1 to=$numberOfPeers do={
+:set peerClientAddress ( $peerClientAddress +1 )
+/interface/wireguard/peers/add private-key=auto allowed-address=$peerClientAddress persistent-keepalive=00:00:10 client-endpoint=[/ip/cloud/ get public-address] client-dns=9.9.9.9,1.1.1.1,8.8.8.8 client-address=$peerClientAddress client-keepalive=00:00:10 interface=$wireguardInterfaceName
+}
+}
