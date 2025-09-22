@@ -8,7 +8,7 @@
 :if ( [:len [/interface/wireguard/find]] = 0 ) do={
 /interface/wireguard/add name=$wireguardInterfaceName
 /ip/address/add address=$wireguardAddress interface=$wireguardInterfaceName listen-port=13231
-/ip/firewall/filter/add chain=input protocol=tcp dst-port=13231 action=accept place-before=0 comment="allow wireguard connections to router"
+/ip/firewall/filter/add chain=input protocol=udp dst-port=13231 action=accept place-before=0 comment="allow wireguard connections to router"
 } else={
 # if wireguard interface already exists, use it
 :if ( [:len [/interface/wireguard/find]] = 1 ) do={
